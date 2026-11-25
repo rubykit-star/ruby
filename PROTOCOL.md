@@ -1,0 +1,65 @@
+# Ruby Protocol · v0.1
+
+The open rules Ruby follows, so any tool or AI can read Ruby notes and check Ruby seals without Ruby.
+
+## 1. Notes
+
+A note is a UTF-8 Markdown file that starts with YAML frontmatter between `---` lines. Values are JSON literals (strings in double quotes, numbers, arrays). Every note has `type` and `tags`. Readers ignore keys they do not know.
+
+| type | folder | keys |
+| --- | --- | --- |
+| `token` | `Tokens/` | symbol, name, address, chain, decimals, total_supply, burned_pct, holders, verified, first_block, price_usdg, clipped, block |
+| `daily` | `Daily/` | date, wallet, label, total_usdg, change_usdg, transfers_24h, block, chain |
+| `radar` | `Radar/` | taken, block, launches, chain, source |
+| `footprint` | `Privacy/` | wallet, taken, block, days, transactions_sent, token_transfers, counterparties, open_approvals, chain |
+| `memory` | `Memory/` | title, saved |
+| `seal` | `Seals/` | note, sha256, tx, sealer, block, sealed_at |
+
+Every fact in a note body links to where it can be checked (an explorer page, a transaction, Sourcify). Notes hold facts, never scores or advice.
+
+## 2. Seals
+
+A seal proves a file existed, unchanged, at a block.
+
+- `hash` = SHA-256 of the file's exact bytes, as 64 lowercase hex characters.
+- The seal is a transaction on Robinhood Chain mainnet (chain id 4663) with `from` = `to` (the sealer's own address), `value` = 0, and `data` = the UTF-8 bytes of `ruby-seal:` followed by `hash`.
+
+To verify a seal for a file and a transaction hash:
+
+1. Compute the file's SHA-256.
+2. Read the transaction and its receipt. The receipt status must be success.
+3. Decode the transaction data as UTF-8. It must equal `ruby-seal:` + the hash exactly.
+4. The block's timestamp is the seal time. `from` is the sealer. `from` = `to` marks a self seal.
+5. Any other data means not a match. Changing one byte of the file changes the hash.
+
+Writers simulate the transaction (`eth_simulateV1`) before asking the sealer to sign. Ruby never holds a key.
+
+## 3. Locked notes
+
+A locked note is `<name>.md.ruby`:
+
+`"RUBY1"` (5 bytes) | salt (16) | iv (12) | GCM tag (16) | ciphertext
+
+- Key: scrypt(password, salt), N = 2^15, r = 8, p = 1, 32 bytes.
+- Cipher: AES-256-GCM over the note's exact bytes.
+- A writer checks the locked copy decrypts to the same bytes before removing the plain note. A wrong password or a changed file fails the GCM check.
+
+## 4. Data sources
+
+- Chain reads: Robinhood Chain mainnet JSON-RPC (`eth_call`, `eth_getLogs`, `eth_getBlockByNumber`, receipts). Readers split `eth_getLogs` ranges when a node limits them.
+- Source verification: Sourcify v2, `GET /server/v2/contract/4663/<address>`.
+- Prices: a live KyberSwap route quote of 1,000 USDG into the token (USDG `0x5fc5360d0400a0fd4f2af552add042d716f1d168`, 6 decimals). A price is "USDG per token".
+- Launches: the Pons launchpad factory `0xe33e9e479df8802cb0866d5d05258bec4cf62948`
+  - launch: topic `0xdcacba5e347ae7abd91cb519eb877af8fa7774e347b85dd3ddcd24a2ba8cdf37`, topics = token, curve, creator; data words = creator, dev ETH in, dev tokens out
+  - buy on a curve: topic `0xec36bf571f136799e8dc0b0b8bea4b04d8bd3d43de838aab0d5fc21d4cbfc455`, data words 0 = ETH in, 1 = tokens out
+  - sell on a curve: topic `0x8113d738abdcb6b38357e9d53a54a7157861a09031b453651f0fe7fe151f59df`, data words 0 = tokens in, 1 = ETH out
+
+## 5. Principles
+
+1. Read only. The only write is a seal, sent from the user's own wallet after a simulation.
+2. Facts, never scores. No ratings, predictions, or buy and sell advice.
+3. A link for every fact.
+4. Local first. Notes stay on the user's machine; no Ruby server receives them.
+5. Plain files. Markdown, JSON frontmatter values, open formats.
+
+Changes to this protocol are proposed as issues on github.com/rubykit-star/ruby.
