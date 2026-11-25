@@ -7,6 +7,7 @@
 //   ruby mcp                           a memory server for AI agents (MCP over stdio)
 //   ruby footprint <wallet>            what the public can read about a wallet: counterparties, hours, holdings, approvals
 //   ruby lock | ruby unlock            encrypt or decrypt every note in the vault with a password (AES-256-GCM)
+//   ruby watch [0x…]                  follow wallets and tokens live: dev sells, launches, big moves (or "watchlist" in ruby.json)
 //   ruby seal <note>                   the SHA-256 and the exact data to seal a note from your own wallet
 //   ruby verify <note> <tx>            check a seal on chain: the note is unchanged since that block
 // Options: --vault <folder> (default: the current folder). Read only: Ruby never signs and never asks for a key.
@@ -21,10 +22,12 @@ import { serve } from "../lib/mcp.mjs";
 import { footprint } from "../lib/footprint.mjs";
 import { lock, unlock, askPassword } from "../lib/vaultlock.mjs";
 import { prepare, verify } from "../lib/seal.mjs";
+import { runWatch } from "../lib/watch.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url)), TEMPLATE = path.join(here, "..", "vault");
 const args = process.argv.slice(2), opt = (k) => { const i = args.indexOf("--" + k); if (i < 0) return null; const v = args[i + 1]; args.splice(i, 2); return v; };
-const vaultArg = opt("vault"), label = opt("label"), count = opt("count"), days = opt("days"), [cmd, target] = args;
+const flag = (k) => { const i = args.indexOf("--" + k); if (i < 0) return false; args.splice(i, 1); return true; };
+const vaultArg = opt("vault"), label = opt("label"), count = opt("count"), days = opt("days"), minutes = opt("minutes"), minEth = opt("min-eth"), minPct = opt("min-pct"), once = flag("once"), [cmd, target] = args;
 const vault = path.resolve(vaultArg || (cmd === "init" && target) || ".");
 const say = (m) => process.stderr.write("· " + m + "\n");
 
@@ -37,6 +40,7 @@ async function main() {
   if (cmd === "radar") { const f = await radarNote(vault, { count: Math.min(40, Number(count) || 15), log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "mcp") { await serve(vault); return; }
   if (cmd === "footprint") { if (!isAddr(target)) throw new Error("usage: ruby footprint <wallet 0x…>"); const f = await footprint(target, vault, { watch: config().watch || [], days: Math.min(365, Number(days) || 30), log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
+  if (cmd === "watch") { const items = [...args.slice(1).filter((a) => isAddr(a)), ...((config().watchlist) || [])]; const r = await runWatch([...new Set(items.map((a) => a.toLowerCase()))], vault, { once, minutes: Math.min(720, Number(minutes) || 30), minEth: Number(minEth) || 0.1, minPct: Number(minPct) || 1, log: say }); if (r?.file) console.log("wrote " + path.relative(process.cwd(), r.file)); return; }
   if (cmd === "seal") { if (!target || !fs.existsSync(target)) throw new Error("usage: ruby seal <note.md>"); const p = prepare(target);
     console.log(`note     ${p.file} (${p.bytes} bytes)\nsha256   ${p.hash}\n\nTo seal it, send 0 ETH from your wallet to the same wallet on Robinhood Chain with this data:\n${p.data}\n\nThe Ruby website does this for you, simulated first, signed in your wallet. Then check it with: ruby verify ${p.file} 0x…tx`); return; }
   if (cmd === "verify") { const tx = args[2]; if (!target || !fs.existsSync(target) || !tx) throw new Error("usage: ruby verify <note.md> <transaction hash>"); const r = await verify(target, tx, vault);
@@ -58,6 +62,7 @@ async function main() {
   ruby mcp                            memory server for AI agents (MCP, stdio)
   ruby footprint <wallet>             what the public can read about a wallet
   ruby lock | ruby unlock             encrypt or decrypt every note with a password
+  ruby watch [0x…] [--once]           follow wallets and tokens live: dev sells, launches, big moves
   ruby seal <note>                    the hash and data to seal a note on chain
   ruby verify <note> <tx>             check a seal: the note is unchanged since that block
 

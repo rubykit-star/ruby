@@ -14,6 +14,7 @@ A note is a UTF-8 Markdown file that starts with YAML frontmatter between `---` 
 | `footprint` | `Privacy/` | wallet, taken, block, days, transactions_sent, token_transfers, counterparties, open_approvals, chain |
 | `memory` | `Memory/` | title, saved |
 | `seal` | `Seals/` | note, sha256, tx, sealer, block, sealed_at |
+| `watch` | `Watch/` | date, watching (a list of addresses); the body is one line per event: level, time, address, what happened, transaction link |
 
 Every fact in a note body links to where it can be checked (an explorer page, a transaction, Sourcify). Notes hold facts, never scores or advice.
 
