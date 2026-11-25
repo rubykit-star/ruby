@@ -13,6 +13,7 @@ A note is a UTF-8 Markdown file that starts with YAML frontmatter between `---` 
 | `radar` | `Radar/` | taken, block, launches, chain, source |
 | `footprint` | `Privacy/` | wallet, taken, block, days, transactions_sent, token_transfers, counterparties, open_approvals, chain |
 | `pool` | `Pools/` | pair, token_x, token_y, symbol_x, symbol_y, bin_step, active_id, price, base_fee_pct, reserve_x, reserve_y, tvl_usdg, swaps_24h, volume_24h_usdg, fees_24h_usdg, verified, code_verified, block, chain |
+| `proofs` | `Proofs/` | taken, block, proofs, provers, contract, chain |
 | `memory` | `Memory/` | title, saved |
 | `seal` | `Seals/` | note, sha256, tx, sealer, block, sealed_at |
 | `x402` | `X402/` | taken, block, hours, payments, usdg, payers, payees, under_1_usdg, chain |
@@ -49,6 +50,19 @@ Test vector, the first Ruby seal on Robinhood Chain mainnet:
 Agents can use the `ruby_seal_prepare` and `ruby_verify` MCP tools. `ruby_seal_prepare` only returns the hash and data; the sealer still signs and sends from their own wallet.
 
 Writers simulate the transaction (`eth_simulateV1`) before asking the sealer to sign. Ruby never holds a key.
+
+## 2.2 Proofs
+
+A proof records that an answer was made from a source read at a block. It lives in RubyProof on Robinhood Chain mainnet: `0x0cc3335d87c21ba7b6bdadb79f356a05c13fba02` (deployed at block 123,114,651, source verified on Sourcify, exact match; no owner, no admin, no upgrade, cannot hold funds; not audited).
+
+- `answerHash` = SHA-256 of the answer's exact UTF-8 bytes. `sourceHash` = SHA-256 of the source's exact bytes (usually a Ruby note).
+- `sourceBlock` = the Robinhood Chain block the source was read at (a Ruby note's `block`). It can't be later than the current block.
+- `kind` = a short UTF-8 label, right-padded to 32 bytes (`pool`, `clip`, `radar`, `note`…).
+- Call `prove(bytes32 answerHash, bytes32 sourceHash, uint64 sourceBlock, bytes32 kind)` (selector `0x47b99798`) from your own wallet with 0 ETH. It emits `Proved(address indexed prover, bytes32 indexed answerHash, bytes32 indexed sourceHash, uint64 sourceBlock, bytes32 kind, uint256 index)` (topic `0xb90d70600762281214595c6c7815b98d92c639f0b93ec934e481fe9ad59f6113`).
+- To check an answer: hash it, then read `Proved` logs with that hash as the second topic. To check its source too, compare the third topic with the source's hash.
+- Robinhood Chain is an Arbitrum chain: inside a contract `block.number` is the Ethereum block, so RubyProof reads the chain's own block from ArbSys (`0x64`).
+
+A proof shows who recorded it, when, and from which source block. It does not show that the answer is true.
 
 ## 3. Locked notes
 
