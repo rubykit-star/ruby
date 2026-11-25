@@ -12,6 +12,7 @@ A note is a UTF-8 Markdown file that starts with YAML frontmatter between `---` 
 | `daily` | `Daily/` | date, wallet, label, total_usdg, change_usdg, transfers_24h, block, chain |
 | `radar` | `Radar/` | taken, block, launches, chain, source |
 | `footprint` | `Privacy/` | wallet, taken, block, days, transactions_sent, token_transfers, counterparties, open_approvals, chain |
+| `pool` | `Pools/` | pair, token_x, token_y, symbol_x, symbol_y, bin_step, active_id, price, base_fee_pct, reserve_x, reserve_y, tvl_usdg, swaps_24h, volume_24h_usdg, fees_24h_usdg, verified, code_verified, block, chain |
 | `memory` | `Memory/` | title, saved |
 | `seal` | `Seals/` | note, sha256, tx, sealer, block, sealed_at |
 | `x402` | `X402/` | taken, block, hours, payments, usdg, payers, payees, under_1_usdg, chain |
@@ -64,6 +65,7 @@ A locked note is `<name>.md.ruby`:
 - Chain reads: Robinhood Chain mainnet JSON-RPC (`eth_call`, `eth_getLogs`, `eth_getBlockByNumber`, receipts). Readers split `eth_getLogs` ranges when a node limits them.
 - Source verification: Sourcify v2, `GET /server/v2/contract/4663/<address>`.
 - Prices: a live KyberSwap route quote of 1,000 USDG into the token (USDG `0x5fc5360d0400a0fd4f2af552add042d716f1d168`, 6 decimals). A price is "USDG per token".
+- DLMM pools (liquidity book): the pair's own view functions `getTokenX`, `getTokenY`, `getBinStep`, `getActiveId`, `getReserves`, `getBin(id)`, `getStaticFeeParameters`; swaps from its `Swap` event (topic `0xad7d6f97abf51ce18e17a38f4d70e975be9c0708474987bb3e26ad21bd93ca70`, amounts packed as X in the low 128 bits and Y in the high 128 bits). Price of 1 X in Y = (1 + binStep / 10,000) ^ (activeId − 8,388,608) × 10^(decimalsX − decimalsY). Base fee = baseFactor × binStep / 10^8. Known factories: `0xdcd5f77697914e27f56fd263ef82923c8524abac`, `0x3d8dc63ddc9b992cfde89f7aea6f18717e84687d`.
 - x402-style payments: USDG `AuthorizationUsed` (topic `0x98de503528ee59b575ef0c0a2576a82497bfc029a5685b209e9ec333479b10a5`, topics = authorizer, nonce) paired with the USDG `Transfer` from that authorizer in the same transaction.
 - Launches: the Pons launchpad factory `0xe33e9e479df8802cb0866d5d05258bec4cf62948`
   - launch: topic `0xdcacba5e347ae7abd91cb519eb877af8fa7774e347b85dd3ddcd24a2ba8cdf37`, topics = token, curve, creator; data words = creator, dev ETH in, dev tokens out
