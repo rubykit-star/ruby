@@ -66,6 +66,10 @@ A clip lists facts with links to check each one. It gives no score and no advice
 
 Copy a folder from `skills/` into your Claude skills folder (for Claude Code: `~/.claude/skills/`). Then ask "write my daily note" or paste a token address.
 
+## Protocol
+
+The note, seal and lock formats are written down in [PROTOCOL.md](PROTOCOL.md), so any tool can read Ruby notes and check Ruby seals without Ruby.
+
 ## License
 
 MIT
