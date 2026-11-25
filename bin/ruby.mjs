@@ -3,7 +3,7 @@
 //   ruby init [folder]                 create a Ruby vault from the template
 //   ruby daily [wallet] [--label name] today's note for a wallet (or every wallet in ruby.json)
 //   ruby clip <token>                  a note of facts about a token, from its contract address
-//   ruby pool <pair>                   a note of facts about a DLMM pool: price, bins, liquidity, fees, 24h swaps
+//   ruby pool <pair | v4 id>           a note of facts about a DLMM pool (pair address) or a Uniswap V4 pool (pool id)
 //   ruby proof <answer> <source>       the data to record on chain that an answer was made from a source note
 //   ruby proof-check <answer>          find proofs of an answer on chain · ruby proofs: a note of every proof
 //   ruby radar [--count 15]            a note of the latest launchpad launches, read from their events
@@ -29,6 +29,7 @@ import { prepare, verify } from "../lib/seal.mjs";
 import { runWatch } from "../lib/watch.mjs";
 import { x402Note } from "../lib/x402.mjs";
 import { pool } from "../lib/pool.mjs";
+import { poolV4, isPoolId } from "../lib/poolv4.mjs";
 import { prepareProof, checkProof, proofsNote, PROOF } from "../lib/proof.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url)), TEMPLATE = path.join(here, "..", "vault");
@@ -49,7 +50,7 @@ async function main() {
   if (cmd === "proof-check") { if (!target || !fs.existsSync(target)) throw new Error("usage: ruby proof-check <answer.txt> [source-note.md]"); const r = await checkProof({ answer: fs.readFileSync(target, "utf8"), sourceFile: args[2] });
     console.log(`answer sha256 ${r.answerHash}${r.sourceHash ? "\nsource sha256 " + r.sourceHash : ""}\n` + (r.found.length ? r.found.map((f) => `✓ proof #${f.index} by ${f.prover} at block ${f.block} · source block ${f.sourceBlock} · kind ${f.kind}${f.sourceMatches === null ? "" : f.sourceMatches ? " · source matches" : " · source differs"}\n  https://robinhoodchain.blockscout.com/tx/${f.tx}`).join("\n") : "✗ no proof of this exact answer on Robinhood Chain")); if (!r.found.length) process.exitCode = 1; return; }
   if (cmd === "proofs") { const f = await proofsNote(vault, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
-  if (cmd === "pool") { if (!isAddr(target)) throw new Error("usage: ruby pool <DLMM pool (pair) address 0x…>"); const f = await pool(target, vault, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
+  if (cmd === "pool") { if (!isAddr(target) && !isPoolId(target)) throw new Error("usage: ruby pool <DLMM pair address 0x… (40 hex) | Uniswap V4 pool id 0x… (64 hex)>"); const f = isPoolId(target) ? await poolV4(target, vault, { log: say }) : await pool(target, vault, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "radar") { const f = await radarNote(vault, { count: Math.min(40, Number(count) || 15), log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "mcp") { await serve(vault); return; }
   if (cmd === "footprint") { if (!isAddr(target)) throw new Error("usage: ruby footprint <wallet 0x…>"); const f = await footprint(target, vault, { watch: config().watch || [], days: Math.min(365, Number(days) || 30), log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
@@ -72,7 +73,7 @@ async function main() {
   ruby init [folder]                  create a Ruby vault from the template
   ruby daily [wallet] [--label name]  today's note for a wallet, or every wallet in ruby.json
   ruby clip <token>                   facts about a token, from its contract address
-  ruby pool <pair>                    facts about a DLMM pool: price, bins, liquidity, fees, 24h swaps
+  ruby pool <pair | v4 pool id>       facts about a DLMM pool or a Uniswap V4 pool: price, liquidity, fees, 24h swaps
   ruby proof <answer> <source.md>     data to record that an answer came from a source note (you send it)
   ruby proof-check <answer> [source]  find proofs of an answer on Robinhood Chain
   ruby proofs                         a note of every proof recorded so far
