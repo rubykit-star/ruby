@@ -1,0 +1,6 @@
+{
+  "wallets": [
+    { "address": "0x000000000000000000000000000000000000dEaD", "label": "example" }
+  ],
+  "watch": []
+}
