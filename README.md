@@ -10,7 +10,7 @@ Website: https://rubykit.cc
 
 | Part | What it does |
 | --- | --- |
-| `vault/` | A ready vault: Daily, Wallets, Tokens, Radar, Watch, Memory, Privacy, Seals, Research, Canvas, Templates |
+| `vault/` | A ready vault: Daily, Wallets, Tokens, Radar, Watch, X402, Memory, Privacy, Seals, Research, Canvas, Templates |
 | `ruby daily` | Today's note for each wallet: balances, value in USDG, the last 24 hours of token transfers, change since the last note |
 | `ruby clip` | A fact note for a token from its contract address: verified or not, owner, first mint, supply and burns, holders, price |
 | `ruby radar` | A note of the latest Pons launchpad launches: dev buy, what the creator holds now and sold, buys and sells, traders, ETH in the curve |
@@ -18,6 +18,7 @@ Website: https://rubykit.cc
 | `ruby footprint` | What the public can read about a wallet: counterparties, active hours, holdings, open approvals (last 30 days, `--days` to change) |
 | `ruby lock` / `ruby unlock` | Encrypt or decrypt every note with a password (AES-256-GCM, scrypt key), on your machine |
 | `ruby watch` | Follow wallets and tokens live: launches they create, launchpad trades, the creator selling, big moves, burns. Logs to `Watch/<date>.md` |
+| `ruby x402` | Every USDG transfer-by-signature (EIP-3009, the way x402 settles) on Robinhood Chain: payments, volume, top payees, the small API-sized ones. Writes `X402/<time>.md` |
 | `ruby seal` / `ruby verify` | Prove a note is unchanged since a block: its SHA-256 sent on chain from your own wallet |
 | `skills/` | Three skills for Claude: daily note, check a token, weekly review |
 

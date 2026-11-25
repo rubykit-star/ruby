@@ -14,6 +14,7 @@ A note is a UTF-8 Markdown file that starts with YAML frontmatter between `---` 
 | `footprint` | `Privacy/` | wallet, taken, block, days, transactions_sent, token_transfers, counterparties, open_approvals, chain |
 | `memory` | `Memory/` | title, saved |
 | `seal` | `Seals/` | note, sha256, tx, sealer, block, sealed_at |
+| `x402` | `X402/` | taken, block, hours, payments, usdg, payers, payees, under_1_usdg, chain |
 | `watch` | `Watch/` | date, watching (a list of addresses); the body is one line per event: level, time, address, what happened, transaction link |
 
 Every fact in a note body links to where it can be checked (an explorer page, a transaction, Sourcify). Notes hold facts, never scores or advice.
@@ -50,6 +51,7 @@ A locked note is `<name>.md.ruby`:
 - Chain reads: Robinhood Chain mainnet JSON-RPC (`eth_call`, `eth_getLogs`, `eth_getBlockByNumber`, receipts). Readers split `eth_getLogs` ranges when a node limits them.
 - Source verification: Sourcify v2, `GET /server/v2/contract/4663/<address>`.
 - Prices: a live KyberSwap route quote of 1,000 USDG into the token (USDG `0x5fc5360d0400a0fd4f2af552add042d716f1d168`, 6 decimals). A price is "USDG per token".
+- x402-style payments: USDG `AuthorizationUsed` (topic `0x98de503528ee59b575ef0c0a2576a82497bfc029a5685b209e9ec333479b10a5`, topics = authorizer, nonce) paired with the USDG `Transfer` from that authorizer in the same transaction.
 - Launches: the Pons launchpad factory `0xe33e9e479df8802cb0866d5d05258bec4cf62948`
   - launch: topic `0xdcacba5e347ae7abd91cb519eb877af8fa7774e347b85dd3ddcd24a2ba8cdf37`, topics = token, curve, creator; data words = creator, dev ETH in, dev tokens out
   - buy on a curve: topic `0xec36bf571f136799e8dc0b0b8bea4b04d8bd3d43de838aab0d5fc21d4cbfc455`, data words 0 = ETH in, 1 = tokens out
