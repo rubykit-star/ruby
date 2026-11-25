@@ -1,0 +1,14 @@
+RUBY UPDATE v0.2.0 · seals for your AI's memory
+
+1) Repo rubykit-star/ruby  →  https://github.com/rubykit-star/ruby
+   - Upload ke folder lib/ :   ruby-repo/lib/mcp.mjs
+     (buka https://github.com/rubykit-star/ruby/upload/main/lib lalu seret mcp.mjs)
+   - Upload ke root repo :     ruby-repo/README.md, ruby-repo/PROTOCOL.md, ruby-repo/package.json
+     (buka https://github.com/rubykit-star/ruby/upload/main lalu seret 3 file itu)
+   - Pesan commit: "v0.2.0: ruby_seal_prepare and ruby_verify MCP tools"
+
+2) Website rubykit-star.github.io  →  https://github.com/rubykit-star/rubykit-star.github.io/upload/main
+   - Upload website/index.html (menimpa yang lama)
+   - Pesan commit: "Memory page: agent seals, setup for Claude Code and Codex"
+
+Setelah 1-2 menit, cek: https://rubykit.cc/memory , /start , /protocol
