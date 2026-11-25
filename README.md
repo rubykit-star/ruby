@@ -14,7 +14,7 @@ Website: https://rubykit.cc
 | `ruby daily` | Today's note for each wallet: balances, value in USDG, the last 24 hours of token transfers, change since the last note |
 | `ruby clip` | A fact note for a token from its contract address: verified or not, owner, first mint, supply and burns, holders, price |
 | `ruby radar` | A note of the latest Pons launchpad launches: dev buy, what the creator holds now and sold, buys and sells, traders, ETH in the curve |
-| `ruby mcp` | A memory server for AI agents (MCP over stdio): `ruby_radar`, `ruby_clip`, `ruby_daily`, `ruby_remember`, `ruby_recall`, `ruby_read` |
+| `ruby mcp` | A memory server for AI agents (MCP over stdio): `ruby_radar`, `ruby_clip`, `ruby_daily`, `ruby_remember`, `ruby_recall`, `ruby_read`, `ruby_seal_prepare`, `ruby_verify` |
 | `ruby footprint` | What the public can read about a wallet: counterparties, active hours, holdings, open approvals (last 30 days, `--days` to change) |
 | `ruby lock` / `ruby unlock` | Encrypt or decrypt every note with a password (AES-256-GCM, scrypt key), on your machine |
 | `ruby watch` | Follow wallets and tokens live: launches they create, launchpad trades, the creator selling, big moves, burns. Logs to `Watch/<date>.md` |
@@ -50,6 +50,31 @@ Add Ruby as an MCP server, for example in Claude Desktop's config:
 ```json
 { "mcpServers": { "ruby": { "command": "npx", "args": ["-y", "github:rubykit-star/ruby", "mcp", "--vault", "/path/to/my-vault"] } } }
 ```
+
+Claude Code:
+
+```
+claude mcp add ruby -- npx -y github:rubykit-star/ruby mcp --vault /path/to/my-vault
+```
+
+Codex (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.ruby]
+command = "npx"
+args = ["-y", "github:rubykit-star/ruby", "mcp", "--vault", "/path/to/my-vault"]
+```
+
+### Sealing what an agent remembers
+
+`ruby_seal_prepare` returns a note's SHA-256 and the exact seal data. It signs and sends nothing: you send the seal from your own wallet (rubykit.cc/seal simulates it first). `ruby_verify` then checks the note against that transaction on Robinhood Chain mainnet and writes a `Seals/` note when it matches. Paths outside the vault are refused.
+
+### What Ruby does not do
+
+- No scores, ratings, predictions, or buy and sell advice. It never calls a token safe.
+- It never holds or asks for a private key or seed phrase.
+- No Ruby server receives your notes.
+- A seal proves a note is unchanged since a block, not that what it says is true.
 
 Your agent can then read the chain, write notes into the vault and recall them later. Notes it saves go to `Memory/`. It can only read files inside the vault.
 

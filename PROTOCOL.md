@@ -34,6 +34,19 @@ To verify a seal for a file and a transaction hash:
 4. The block's timestamp is the seal time. `from` is the sealer. `from` = `to` marks a self seal.
 5. Any other data means not a match. Changing one byte of the file changes the hash.
 
+Test vector, the first Ruby seal on Robinhood Chain mainnet:
+
+| | |
+| --- | --- |
+| file bytes | `First Ruby seal. Robinhood Chain, 25 Nov 2026.` (46 bytes, UTF-8, no trailing newline) |
+| hash | `1f6f333aefac7c8328395699f9936bdfaa644a373d3641590d9e92f87a362a7b` |
+| data | UTF-8 of `ruby-seal:1f6f333aefac7c8328395699f9936bdfaa644a373d3641590d9e92f87a362a7b` |
+| transaction | `0x48a26e333e5417f2e4ceb2109f8963d7b1dc1c90e489e13cc4602c90ed66c3c9` |
+| block | 122,724,179, `from` = `to`, `value` = 0 |
+| one byte changed | `...25 Nov 2026!` hashes to `981b1f4fe1954834f4165194c8f0a6271d01171792773db6392437c5de2d3294`: not a match |
+
+Agents can use the `ruby_seal_prepare` and `ruby_verify` MCP tools. `ruby_seal_prepare` only returns the hash and data; the sealer still signs and sends from their own wallet.
+
 Writers simulate the transaction (`eth_simulateV1`) before asking the sealer to sign. Ruby never holds a key.
 
 ## 3. Locked notes
