@@ -4,6 +4,8 @@
 //   ruby daily [wallet] [--label name] today's note for a wallet (or every wallet in ruby.json)
 //   ruby clip <token>                  a note of facts about a token, from its contract address
 //   ruby pool <pair>                   a note of facts about a DLMM pool: price, bins, liquidity, fees, 24h swaps
+//   ruby proof <answer> <source>       the data to record on chain that an answer was made from a source note
+//   ruby proof-check <answer>          find proofs of an answer on chain · ruby proofs: a note of every proof
 //   ruby radar [--count 15]            a note of the latest launchpad launches, read from their events
 //   ruby mcp                           a memory server for AI agents (MCP over stdio)
 //   ruby footprint <wallet>            what the public can read about a wallet: counterparties, hours, holdings, approvals
@@ -27,11 +29,12 @@ import { prepare, verify } from "../lib/seal.mjs";
 import { runWatch } from "../lib/watch.mjs";
 import { x402Note } from "../lib/x402.mjs";
 import { pool } from "../lib/pool.mjs";
+import { prepareProof, checkProof, proofsNote, PROOF } from "../lib/proof.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url)), TEMPLATE = path.join(here, "..", "vault");
 const args = process.argv.slice(2), opt = (k) => { const i = args.indexOf("--" + k); if (i < 0) return null; const v = args[i + 1]; args.splice(i, 2); return v; };
 const flag = (k) => { const i = args.indexOf("--" + k); if (i < 0) return false; args.splice(i, 1); return true; };
-const vaultArg = opt("vault"), label = opt("label"), count = opt("count"), days = opt("days"), hours = opt("hours"), minutes = opt("minutes"), minEth = opt("min-eth"), minPct = opt("min-pct"), once = flag("once"), [cmd, target] = args;
+const kindArg = opt("kind"), vaultArg = opt("vault"), label = opt("label"), count = opt("count"), days = opt("days"), hours = opt("hours"), minutes = opt("minutes"), minEth = opt("min-eth"), minPct = opt("min-pct"), once = flag("once"), [cmd, target] = args;
 const vault = path.resolve(vaultArg || (cmd === "init" && target) || ".");
 const say = (m) => process.stderr.write("· " + m + "\n");
 
@@ -41,6 +44,11 @@ function config() { const f = path.join(vault, "ruby.json"); if (!fs.existsSync(
 async function main() {
   if (cmd === "init") { copyDir(TEMPLATE, vault); console.log(`Ruby vault ready at ${vault}\nNext: add your wallet to ruby.json, then run: ruby daily`); return; }
   if (cmd === "clip") { if (!isAddr(target)) throw new Error("usage: ruby clip <token contract address 0x…>"); const f = await clip(target, vault, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
+  if (cmd === "proof") { const src = args[2]; if (!target || !fs.existsSync(target) || !src) throw new Error("usage: ruby proof <answer.txt> <source-note.md> [--kind pool]"); const p = await prepareProof({ answer: fs.readFileSync(target, "utf8"), sourceFile: src, kind: kindArg });
+    console.log(`answer  ${target} · sha256 ${p.answerHash}\nsource  ${src} (${p.bytes} bytes) · sha256 ${p.sourceHash}\nblock   ${p.sourceBlock} (the source was read at this block)\nkind    ${p.kind}\n\nNothing was signed or sent. To record the proof, send 0 ETH from your own wallet to RubyProof ${PROOF} on Robinhood Chain with this data (rubykit.cc/proof does it for you, simulated first):\n${p.data}\n\nThen anyone can check it with: ruby proof-check ${target}`); return; }
+  if (cmd === "proof-check") { if (!target || !fs.existsSync(target)) throw new Error("usage: ruby proof-check <answer.txt> [source-note.md]"); const r = await checkProof({ answer: fs.readFileSync(target, "utf8"), sourceFile: args[2] });
+    console.log(`answer sha256 ${r.answerHash}${r.sourceHash ? "\nsource sha256 " + r.sourceHash : ""}\n` + (r.found.length ? r.found.map((f) => `✓ proof #${f.index} by ${f.prover} at block ${f.block} · source block ${f.sourceBlock} · kind ${f.kind}${f.sourceMatches === null ? "" : f.sourceMatches ? " · source matches" : " · source differs"}\n  https://robinhoodchain.blockscout.com/tx/${f.tx}`).join("\n") : "✗ no proof of this exact answer on Robinhood Chain")); if (!r.found.length) process.exitCode = 1; return; }
+  if (cmd === "proofs") { const f = await proofsNote(vault, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "pool") { if (!isAddr(target)) throw new Error("usage: ruby pool <DLMM pool (pair) address 0x…>"); const f = await pool(target, vault, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "radar") { const f = await radarNote(vault, { count: Math.min(40, Number(count) || 15), log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "mcp") { await serve(vault); return; }
@@ -65,6 +73,9 @@ async function main() {
   ruby daily [wallet] [--label name]  today's note for a wallet, or every wallet in ruby.json
   ruby clip <token>                   facts about a token, from its contract address
   ruby pool <pair>                    facts about a DLMM pool: price, bins, liquidity, fees, 24h swaps
+  ruby proof <answer> <source.md>     data to record that an answer came from a source note (you send it)
+  ruby proof-check <answer> [source]  find proofs of an answer on Robinhood Chain
+  ruby proofs                         a note of every proof recorded so far
   ruby radar [--count 15]             the latest launchpad launches, as one note
   ruby mcp                            memory server for AI agents (MCP, stdio)
   ruby footprint <wallet>             what the public can read about a wallet
