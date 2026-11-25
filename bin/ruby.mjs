@@ -3,6 +3,7 @@
 //   ruby init [folder]                 create a Ruby vault from the template
 //   ruby daily [wallet] [--label name] today's note for a wallet (or every wallet in ruby.json)
 //   ruby clip <token>                  a note of facts about a token, from its contract address
+//   ruby pool <pair>                   a note of facts about a DLMM pool: price, bins, liquidity, fees, 24h swaps
 //   ruby radar [--count 15]            a note of the latest launchpad launches, read from their events
 //   ruby mcp                           a memory server for AI agents (MCP over stdio)
 //   ruby footprint <wallet>            what the public can read about a wallet: counterparties, hours, holdings, approvals
@@ -25,6 +26,7 @@ import { lock, unlock, askPassword } from "../lib/vaultlock.mjs";
 import { prepare, verify } from "../lib/seal.mjs";
 import { runWatch } from "../lib/watch.mjs";
 import { x402Note } from "../lib/x402.mjs";
+import { pool } from "../lib/pool.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url)), TEMPLATE = path.join(here, "..", "vault");
 const args = process.argv.slice(2), opt = (k) => { const i = args.indexOf("--" + k); if (i < 0) return null; const v = args[i + 1]; args.splice(i, 2); return v; };
@@ -39,6 +41,7 @@ function config() { const f = path.join(vault, "ruby.json"); if (!fs.existsSync(
 async function main() {
   if (cmd === "init") { copyDir(TEMPLATE, vault); console.log(`Ruby vault ready at ${vault}\nNext: add your wallet to ruby.json, then run: ruby daily`); return; }
   if (cmd === "clip") { if (!isAddr(target)) throw new Error("usage: ruby clip <token contract address 0x…>"); const f = await clip(target, vault, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
+  if (cmd === "pool") { if (!isAddr(target)) throw new Error("usage: ruby pool <DLMM pool (pair) address 0x…>"); const f = await pool(target, vault, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "radar") { const f = await radarNote(vault, { count: Math.min(40, Number(count) || 15), log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "mcp") { await serve(vault); return; }
   if (cmd === "footprint") { if (!isAddr(target)) throw new Error("usage: ruby footprint <wallet 0x…>"); const f = await footprint(target, vault, { watch: config().watch || [], days: Math.min(365, Number(days) || 30), log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
@@ -61,6 +64,7 @@ async function main() {
   ruby init [folder]                  create a Ruby vault from the template
   ruby daily [wallet] [--label name]  today's note for a wallet, or every wallet in ruby.json
   ruby clip <token>                   facts about a token, from its contract address
+  ruby pool <pair>                    facts about a DLMM pool: price, bins, liquidity, fees, 24h swaps
   ruby radar [--count 15]             the latest launchpad launches, as one note
   ruby mcp                            memory server for AI agents (MCP, stdio)
   ruby footprint <wallet>             what the public can read about a wallet
