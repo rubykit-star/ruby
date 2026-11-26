@@ -18,8 +18,9 @@ Website: https://rubykit.cc
 | `ruby lend [wallet]` | Lending on Robinhood Chain, read from the contracts: the Aave V3 market (assets, LTV, supplied, borrowed, rates, price feeds and their last update) and Morpho (markets lending the real USDG, matched by address). With a wallet: its positions, health factor and the price drop that would reach liquidation. Ruby lends nothing |
 | `ruby flow [poolId] [count]` | The latest swaps in a Uniswap V4 pool, newest first: buy or sell, amounts, time in UTC and the wallet behind each one, read from the token transfers in the same transaction (the Swap event only names the router). Each wallet is labelled from the chain: wallet, 7702 smart wallet, contract, the pool's hook, or a high-volume sender. Defaults to the RUBY pool |
 | `ruby replicate <token> "<claims>"` | Re-run claims about a token against the chain, one verdict per claim: replicated, not replicated or can't check. Reads the launch locker, holder shares (from every Transfer log, confirmed again with `balanceOf`), a wallet's balance, burn, supply, holder count, direct transfers between top holders and Sourcify, all at one pinned block. Writes a plain-text certificate and its sha256, ready to record with `ruby proof` |
+| `ruby gpu <endpoint\|payee> [wallet]` | Ruby GPU Spend: what is spent on a GPU network (or any per-call API) over the last 7 days, from the chain. Give its x402 endpoint (Ruby reads the 402 offer for the payee and price) or the payee address: paid calls per day, x402 settlements, USDG, payers, price per call, biggest payers. With a wallet, what that wallet spent there, with a warning on bursts. Payments with prepaid credits or other tokens are not visible |
 | `ruby radar` | A note of the latest Pons launchpad launches: dev buy, what the creator holds now and sold, buys and sells, traders, ETH in the curve |
-| `ruby mcp` | A memory server for AI agents (MCP over stdio): `ruby_radar`, `ruby_clip`, `ruby_pool`, `ruby_locker`, `ruby_lend`, `ruby_flow`, `ruby_replicate`, `ruby_daily`, `ruby_remember`, `ruby_recall`, `ruby_read`, `ruby_seal_prepare`, `ruby_verify`, `ruby_proof_prepare`, `ruby_proof_check` |
+| `ruby mcp` | A memory server for AI agents (MCP over stdio): `ruby_radar`, `ruby_clip`, `ruby_pool`, `ruby_locker`, `ruby_lend`, `ruby_flow`, `ruby_replicate`, `ruby_gpu`, `ruby_daily`, `ruby_remember`, `ruby_recall`, `ruby_read`, `ruby_seal_prepare`, `ruby_verify`, `ruby_proof_prepare`, `ruby_proof_check` |
 | `ruby footprint` | What the public can read about a wallet: counterparties, active hours, holdings, open approvals (last 30 days, `--days` to change) |
 | `ruby lock` / `ruby unlock` | Encrypt or decrypt every note with a password (AES-256-GCM, scrypt key), on your machine |
 | `ruby watch` | Follow wallets and tokens live: launches they create, launchpad trades, the creator selling, big moves, burns. Logs to `Watch/<date>.md` |
@@ -53,7 +54,7 @@ npx -y github:rubykit-star/ruby radar
 
 ### One URL, nothing to install
 
-Ruby runs as a hosted MCP server at **`https://ruby-mcp.vercel.app/mcp`** (Streamable HTTP, read only: no key, no signing, no fee). Eight tools: `ruby_block`, `ruby_flow`, `ruby_replicate`, `ruby_locker`, `ruby_holders`, `ruby_pool`, `ruby_lend`, `ruby_proof_check`.
+Ruby runs as a hosted MCP server at **`https://ruby-mcp.vercel.app/mcp`** (Streamable HTTP, read only: no key, no signing, no fee). Nine tools: `ruby_block`, `ruby_flow`, `ruby_replicate`, `ruby_gpu`, `ruby_locker`, `ruby_holders`, `ruby_pool`, `ruby_lend`, `ruby_proof_check`.
 
 ```
 claude mcp add --transport http ruby https://ruby-mcp.vercel.app/mcp
