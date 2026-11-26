@@ -34,6 +34,7 @@ import { lockerNote } from "../lib/locker.mjs";
 import { lendNote } from "../lib/lend.mjs";
 import { flowNote, RUBY_POOL } from "../lib/flow.mjs";
 import { replicateNote } from "../lib/replicate.mjs";
+import { gpuNote } from "../lib/gpu.mjs";
 import { prepareProof, checkProof, proofsNote, PROOF } from "../lib/proof.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url)), TEMPLATE = path.join(here, "..", "vault");
@@ -54,6 +55,7 @@ async function main() {
   if (cmd === "proof-check") { if (!target || !fs.existsSync(target)) throw new Error("usage: ruby proof-check <answer.txt> [source-note.md]"); const r = await checkProof({ answer: fs.readFileSync(target, "utf8"), sourceFile: args[2] });
     console.log(`answer sha256 ${r.answerHash}${r.sourceHash ? "\nsource sha256 " + r.sourceHash : ""}\n` + (r.found.length ? r.found.map((f) => `✓ proof #${f.index} by ${f.prover} at block ${f.block} · source block ${f.sourceBlock} · kind ${f.kind}${f.sourceMatches === null ? "" : f.sourceMatches ? " · source matches" : " · source differs"}\n  https://robinhoodchain.blockscout.com/tx/${f.tx}`).join("\n") : "✗ no proof of this exact answer on Robinhood Chain")); if (!r.found.length) process.exitCode = 1; return; }
   if (cmd === "proofs") { const f = await proofsNote(vault, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
+  if (cmd === "gpu") { const w = args[2] || null; if (!target || (!isAddr(target) && !/^https?:\/\//i.test(target))) throw new Error("usage: ruby gpu <x402 endpoint URL | payee 0x…> [your wallet 0x…]"); const f = await gpuNote(vault, target, { wallet: w, log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "replicate") { const src = args.slice(2).join(" "); if (!isAddr(target) || !src) throw new Error('usage: ruby replicate <token 0x…> "<claims, one per line>"  (or a path to a text file of claims)'); const claims = fs.existsSync(src) ? fs.readFileSync(src, "utf8") : src.replace(/\\n/g, "\n"); const f = await replicateNote(vault, target, claims, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "flow") { const num = /^\d+$/.test(target || ""), pid = num ? null : target; if (pid && !isPoolId(pid)) throw new Error("usage: ruby flow [Uniswap V4 pool id 0x… (64 hex)] [count]"); const n = parseInt(count || (num ? target : args[2]) || "40", 10); const f = await flowNote(vault, { pool: pid || RUBY_POOL, count: n, log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "lend") { if (target && !isAddr(target)) throw new Error("usage: ruby lend [wallet 0x…]"); const f = await lendNote(vault, { wallet: target || null, log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
@@ -84,6 +86,7 @@ async function main() {
   ruby pool <pair | v4 pool id>       facts about a DLMM pool or a Uniswap V4 pool: price, liquidity, fees, 24h swaps
   ruby locker <token>                 what the Pons V2 launch locker holds for a graduated token
   ruby lend [wallet]                  lending markets on Robinhood Chain; with a wallet, its positions and room to liquidation
+  ruby gpu <endpoint|payee> [wallet]  Ruby GPU Spend: paid calls, USDG and payers of a GPU network over 7 days; with a wallet, what it spent
   ruby replicate <token> "<claims>"   re-run claims about a token against the chain; writes verdicts and a certificate
   ruby flow [poolId] [count]          the latest swaps in a Uniswap V4 pool, with the wallet behind each (default: the RUBY pool)
   ruby proof <answer> <source.md>     data to record that an answer came from a source note (you send it)
