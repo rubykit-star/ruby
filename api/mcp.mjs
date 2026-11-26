@@ -7,8 +7,9 @@ import { readLocker, PONS_V2_LOCKER } from "../lib/locker.mjs";
 import { readV4, POOL_MANAGER, isPoolId } from "../lib/poolv4.mjs";
 import { readAave, readWallet } from "../lib/lend.mjs";
 import { readProofs, sha256hex, PROOF } from "../lib/proof.mjs";
+import { readGpu } from "../lib/gpu.mjs";
 
-const VERSION = "0.9.0", RUBY = "0x48447ce272824776c7f21d8741dba38ca1586475";
+const VERSION = "0.10.0", RUBY = "0x48447ce272824776c7f21d8741dba38ca1586475";
 const f = (x, d = 4) => (x == null || !isFinite(x) ? "–" : x === 0 ? "0" : Math.abs(x) >= 1 ? x.toLocaleString("en-US", { maximumFractionDigits: Math.abs(x) >= 1000 ? 0 : d }) : x.toPrecision(4).replace(/0+$/, ""));
 const pct = (x) => (x == null ? "–" : (Math.round(x * 100) / 100).toFixed(2) + "%");
 const utc = (s) => (s ? new Date(s * 1000).toISOString().slice(0, 19).replace("T", " ") + " UTC" : "–");
@@ -27,6 +28,11 @@ const TOOLS = [
     run: async (a) => { need(isAddr(a.token), "token must be 0x… (40 hex)"); need(a.claims && String(a.claims).trim(), "claims are required"); const R = await replicate(a.token, String(a.claims));
       return `# ${R.symbol} · claims re-run at block ${R.block.toLocaleString("en-US")}\n\n| verdict | claim | what the chain says |\n| --- | --- | --- |\n` + R.results.map((r) => `| ${r.verdict} | ${r.claim.replace(/\|/g, "/")} | ${r.value.replace(/\|/g, "/")} |`).join("\n") +
         `\n\n${R.confirmed ? `Holder shares from ${R.transfers.toLocaleString("en-US")} Transfer logs; top ${R.confirmed.checked} confirmed with balanceOf (${R.confirmed.mismatches} mismatches).\n\n` : ""}Certificate (sha256 ${R.certificateSha}):\n\`\`\`\n${R.certificate}\`\`\`\nRecord it on chain at https://rubykit.cc/replicate (simulated first, signed in your own wallet).`; } },
+  { name: "ruby_gpu", description: "Ruby GPU Spend: what is spent on a GPU network (or any per-call API) on Robinhood Chain over the last 7 days, from the chain. Give its x402 endpoint URL or its payee address. Paid calls per day, x402 settlements, USDG, payers, price per call, biggest payers; with a wallet, what that wallet spent there and any burst.", inputSchema: { type: "object", properties: { target: { type: "string", description: "x402 endpoint URL, or payee 0x…" }, wallet: { type: "string", description: "optional wallet 0x…" } }, required: ["target"] },
+    run: async (a) => { need(a.target, "target is required"); const M = await readGpu(String(a.target), { wallet: a.wallet || null }), T = M.total;
+      return `# GPU spend · ${short(M.payTo)} · last ${M.days} days\nRead at block ${M.head.toLocaleString("en-US")}.${M.offer ? ` Offer: ${f(M.offer.price)} USDG per call.` : ""}\n- paid calls (settled the x402 way): ${T.jobs}${T.otherTransfers ? ` · other USDG transfers in: ${T.otherTransfers}` : ""}\n- USDG paid for calls: ${f(T.usdg)} · payers: ${T.payers} · price per call: median ${f(T.median)}, average ${f(T.avg)}\n\n| day (UTC) | calls | USDG |\n| --- | --- | --- |\n` + M.perDay.map((d) => `| ${d.day} | ${d.jobs} | ${f(d.usdg)} |`).join("\n") +
+        `\n\nBiggest payers: ` + (M.top.length ? M.top.slice(0, 5).map((p) => `${A(p.addr)} ${p.jobs} calls, ${f(p.usdg)} USDG (${p.kind})`).join("; ") : "none") +
+        (M.mine ? `\n\nWallet ${A(M.mine.wallet)}: ${M.mine.jobs} calls, ${f(M.mine.usdg)} USDG in ${M.days} days, today ${f(M.mine.today)}. ${M.mine.flags.length ? "Warning: " + M.mine.flags.join("; ") : "Nothing unusual."}` : "") + `\n\nPayments with prepaid credits or other tokens are not visible.`; } },
   { name: "ruby_locker", description: "What the Pons V2 launch locker holds for a graduated token: whether it owns the pool's position NFT, that position's share of the pool's liquidity, the locked token supply, and any locker function that could move them.", inputSchema: { type: "object", properties: { token: { type: "string", description: "token contract 0x…" } }, required: ["token"] },
     run: async (a) => { need(isAddr(a.token), "token must be 0x… (40 hex)"); const R = await readLocker(a.token), sup = R.totalSupply > 0n ? Number((R.supplyLocked * 1000000n) / R.totalSupply) / 10000 : null;
       if (!R.locked) return `${short(a.token)} has no lock in the Pons V2 launch locker ${A(PONS_V2_LOCKER)}.`;
