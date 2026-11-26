@@ -2,7 +2,7 @@
 // Read only: it reads Robinhood Chain and answers in Markdown. It holds no key, signs nothing, stores nothing, and takes no fee.
 import { TOOLS } from "../lib/tools.mjs";
 
-const VERSION = "0.11.0";
+const VERSION = "0.11.1";
 
 // best-effort fairness per instance: 60 calls a minute per IP
 const hits = new Map();
