@@ -35,12 +35,13 @@ import { lendNote } from "../lib/lend.mjs";
 import { flowNote, RUBY_POOL } from "../lib/flow.mjs";
 import { replicateNote } from "../lib/replicate.mjs";
 import { gpuNote } from "../lib/gpu.mjs";
+import { agentNote, DEFAULT_MODEL } from "../lib/agent.mjs";
 import { prepareProof, checkProof, proofsNote, PROOF } from "../lib/proof.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url)), TEMPLATE = path.join(here, "..", "vault");
 const args = process.argv.slice(2), opt = (k) => { const i = args.indexOf("--" + k); if (i < 0) return null; const v = args[i + 1]; args.splice(i, 2); return v; };
 const flag = (k) => { const i = args.indexOf("--" + k); if (i < 0) return false; args.splice(i, 1); return true; };
-const kindArg = opt("kind"), vaultArg = opt("vault"), label = opt("label"), count = opt("count"), days = opt("days"), hours = opt("hours"), minutes = opt("minutes"), minEth = opt("min-eth"), minPct = opt("min-pct"), once = flag("once"), [cmd, target] = args;
+const modelArg = opt("model"), stepsArg = opt("steps"), kindArg = opt("kind"), vaultArg = opt("vault"), label = opt("label"), count = opt("count"), days = opt("days"), hours = opt("hours"), minutes = opt("minutes"), minEth = opt("min-eth"), minPct = opt("min-pct"), once = flag("once"), [cmd, target] = args;
 const vault = path.resolve(vaultArg || (cmd === "init" && target) || ".");
 const say = (m) => process.stderr.write("· " + m + "\n");
 
@@ -55,6 +56,7 @@ async function main() {
   if (cmd === "proof-check") { if (!target || !fs.existsSync(target)) throw new Error("usage: ruby proof-check <answer.txt> [source-note.md]"); const r = await checkProof({ answer: fs.readFileSync(target, "utf8"), sourceFile: args[2] });
     console.log(`answer sha256 ${r.answerHash}${r.sourceHash ? "\nsource sha256 " + r.sourceHash : ""}\n` + (r.found.length ? r.found.map((f) => `✓ proof #${f.index} by ${f.prover} at block ${f.block} · source block ${f.sourceBlock} · kind ${f.kind}${f.sourceMatches === null ? "" : f.sourceMatches ? " · source matches" : " · source differs"}\n  https://robinhoodchain.blockscout.com/tx/${f.tx}`).join("\n") : "✗ no proof of this exact answer on Robinhood Chain")); if (!r.found.length) process.exitCode = 1; return; }
   if (cmd === "proofs") { const f = await proofsNote(vault, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
+  if (cmd === "agent") { const task = args.slice(1).join(" ").trim(); if (!task) throw new Error('usage: ruby agent "<task>" [--model openrouter-model-id] [--steps 8]  (needs OPENROUTER_API_KEY in your environment)'); const r = await agentNote(vault, task, { model: modelArg || DEFAULT_MODEL, steps: stepsArg ? +stepsArg : 8, log: say }); console.log("\n" + r.answer + "\n\nwrote " + path.relative(process.cwd(), r.file)); return; }
   if (cmd === "gpu") { const w = args[2] || null; if (!target || (!isAddr(target) && !/^https?:\/\//i.test(target))) throw new Error("usage: ruby gpu <x402 endpoint URL | payee 0x…> [your wallet 0x…]"); const f = await gpuNote(vault, target, { wallet: w, log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "replicate") { const src = args.slice(2).join(" "); if (!isAddr(target) || !src) throw new Error('usage: ruby replicate <token 0x…> "<claims, one per line>"  (or a path to a text file of claims)'); const claims = fs.existsSync(src) ? fs.readFileSync(src, "utf8") : src.replace(/\\n/g, "\n"); const f = await replicateNote(vault, target, claims, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "flow") { const num = /^\d+$/.test(target || ""), pid = num ? null : target; if (pid && !isPoolId(pid)) throw new Error("usage: ruby flow [Uniswap V4 pool id 0x… (64 hex)] [count]"); const n = parseInt(count || (num ? target : args[2]) || "40", 10); const f = await flowNote(vault, { pool: pid || RUBY_POOL, count: n, log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
@@ -86,6 +88,7 @@ async function main() {
   ruby pool <pair | v4 pool id>       facts about a DLMM pool or a Uniswap V4 pool: price, liquidity, fees, 24h swaps
   ruby locker <token>                 what the Pons V2 launch locker holds for a graduated token
   ruby lend [wallet]                  lending markets on Robinhood Chain; with a wallet, its positions and room to liquidation
+  ruby agent "<task>" [--model id]    an AI agent that answers a task with Ruby's read-only tools (your OPENROUTER_API_KEY)
   ruby gpu <endpoint|payee> [wallet]  Ruby GPU Spend: paid calls, USDG and payers of a GPU network over 7 days; with a wallet, what it spent
   ruby replicate <token> "<claims>"   re-run claims about a token against the chain; writes verdicts and a certificate
   ruby flow [poolId] [count]          the latest swaps in a Uniswap V4 pool, with the wallet behind each (default: the RUBY pool)
