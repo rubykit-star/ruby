@@ -51,6 +51,22 @@ npx -y github:rubykit-star/ruby radar
 
 ## Your AI
 
+### One URL, nothing to install
+
+Ruby runs as a hosted MCP server at **`https://ruby-mcp.vercel.app/mcp`** (Streamable HTTP, read only: no key, no signing, no fee). Eight tools: `ruby_block`, `ruby_flow`, `ruby_replicate`, `ruby_locker`, `ruby_holders`, `ruby_pool`, `ruby_lend`, `ruby_proof_check`.
+
+```
+claude mcp add --transport http ruby https://ruby-mcp.vercel.app/mcp
+```
+
+Cursor (`~/.cursor/mcp.json`): `{ "mcpServers": { "ruby": { "url": "https://ruby-mcp.vercel.app/mcp" } } }`
+VS Code (`.vscode/mcp.json`): `{ "servers": { "ruby": { "type": "http", "url": "https://ruby-mcp.vercel.app/mcp" } } }`
+Claude: Settings → Connectors → Add custom connector → paste the URL.
+
+The hosted server is `api/mcp.mjs` in this repository. It allows 60 calls a minute per address; for more, or for the vault tools (notes, memory, seal, proof), run Ruby locally as below.
+
+### Run it locally
+
 Add Ruby as an MCP server, for example in Claude Desktop's config:
 
 ```json
