@@ -7,6 +7,7 @@
 //   ruby proof <answer> <source>       the data to record on chain that an answer was made from a source note
 //   ruby proof-check <answer>          find proofs of an answer on chain · ruby proofs: a note of every proof
 //   ruby radar [--count 15]            a note of the latest launchpad launches, read from their events
+//   ruby playbook [name] [token]       saved tasks that write a report note, compared with the last run (--every 24h to repeat)
 //   ruby lens [token] [--count 10]     Ruby Lens: the latest launches, or every fact about one token, as a note
 //   ruby mcp                           a memory server for AI agents (MCP over stdio)
 //   ruby footprint <wallet>            what the public can read about a wallet: counterparties, hours, holdings, approvals
@@ -38,12 +39,13 @@ import { replicateNote } from "../lib/replicate.mjs";
 import { gpuNote } from "../lib/gpu.mjs";
 import { write as writeNote, frontmatter as fmNote, safeName as safeNote } from "../lib/note.mjs";
 import { agentNote, DEFAULT_MODEL } from "../lib/agent.mjs";
+import { BUILT_IN, runTokenPlaybook, runCustomPlaybook, every } from "../lib/playbook.mjs";
 import { prepareProof, checkProof, proofsNote, PROOF } from "../lib/proof.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url)), TEMPLATE = path.join(here, "..", "vault");
 const args = process.argv.slice(2), opt = (k) => { const i = args.indexOf("--" + k); if (i < 0) return null; const v = args[i + 1]; args.splice(i, 2); return v; };
 const flag = (k) => { const i = args.indexOf("--" + k); if (i < 0) return false; args.splice(i, 1); return true; };
-const modelArg = opt("model"), stepsArg = opt("steps"), kindArg = opt("kind"), vaultArg = opt("vault"), label = opt("label"), count = opt("count"), days = opt("days"), hours = opt("hours"), minutes = opt("minutes"), minEth = opt("min-eth"), minPct = opt("min-pct"), once = flag("once"), [cmd, target] = args;
+const everyArg = opt("every"), aiFlag = flag("ai"), modelArg = opt("model"), stepsArg = opt("steps"), kindArg = opt("kind"), vaultArg = opt("vault"), label = opt("label"), count = opt("count"), days = opt("days"), hours = opt("hours"), minutes = opt("minutes"), minEth = opt("min-eth"), minPct = opt("min-pct"), once = flag("once"), [cmd, target] = args;
 const vault = path.resolve(vaultArg || (cmd === "init" && target) || ".");
 const say = (m) => process.stderr.write("· " + m + "\n");
 
@@ -59,6 +61,14 @@ async function main() {
     console.log(`answer sha256 ${r.answerHash}${r.sourceHash ? "\nsource sha256 " + r.sourceHash : ""}\n` + (r.found.length ? r.found.map((f) => `✓ proof #${f.index} by ${f.prover} at block ${f.block} · source block ${f.sourceBlock} · kind ${f.kind}${f.sourceMatches === null ? "" : f.sourceMatches ? " · source matches" : " · source differs"}\n  https://robinhoodchain.blockscout.com/tx/${f.tx}`).join("\n") : "✗ no proof of this exact answer on Robinhood Chain")); if (!r.found.length) process.exitCode = 1; return; }
   if (cmd === "proofs") { const f = await proofsNote(vault, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "agent") { const task = args.slice(1).join(" ").trim(); if (!task) throw new Error('usage: ruby agent "<task>" [--model openrouter-model-id] [--steps 8]  (needs OPENROUTER_API_KEY in your environment)'); const r = await agentNote(vault, task, { model: modelArg || DEFAULT_MODEL, steps: stepsArg ? +stepsArg : 8, log: say }); console.log("\n" + r.answer + "\n\nwrote " + path.relative(process.cwd(), r.file)); return; }
+  if (cmd === "playbook") { const cfg = config(), custom = cfg.playbooks || {};
+    if (!target) { console.log("Playbooks (read-only, no key needed):\n" + Object.entries(BUILT_IN).map(([n, b]) => `  ${n.padEnd(14)} ${b.about}\n${" ".repeat(17)}ruby playbook ${n} <${b.needs} 0x… | RUBY> [--every 24h] [--ai]`).join("\n") + (Object.keys(custom).length ? "\n\nIn ruby.json:\n" + Object.entries(custom).map(([n, d]) => `  ${n.padEnd(14)} ${(d.steps || []).length} ${(d.steps || []).length === 1 ? "step" : "steps"} · ruby playbook ${n}`).join("\n") : "\n\nAdd your own in ruby.json under \"playbooks\".")); return; }
+    const ai = aiFlag ? (process.env.OPENROUTER_API_KEY ? { model: modelArg || DEFAULT_MODEL } : (() => { throw new Error("--ai needs OPENROUTER_API_KEY in your environment (your own key from openrouter.ai/keys)"); })()) : null;
+    const runOnce = async () => { const r = target === "token" ? await runTokenPlaybook(vault, args[2], { log: say, agent: ai }) : custom[target] ? await runCustomPlaybook(vault, target, custom[target], { log: say, agent: ai }) : (() => { throw new Error(`no playbook named "${target}": run \`ruby playbook\` to see them`); })();
+      console.log(`wrote ${path.relative(process.cwd(), r.file)}  (${new Date().toISOString().slice(0, 16).replace("T", " ")} UTC)`); };
+    if (!everyArg) { await runOnce(); return; }
+    const ms = every(everyArg); say(`running now, then every ${everyArg}. Leave this window open; Ctrl+C stops it.`);
+    for (;;) { try { await runOnce(); } catch (e) { say("this run failed: " + (e.message || e) + " · trying again next time"); } say(`next run at ${new Date(Date.now() + ms).toISOString().slice(0, 16).replace("T", " ")} UTC`); await new Promise((r) => setTimeout(r, ms)); } }
   if (cmd === "lens") { if (target && !isAddr(target) && !/^\$?ruby$/i.test(target)) throw new Error("usage: ruby lens [token 0x…] [--count 10]"); const { TOOLS } = await import("../lib/tools.mjs"); say(target ? "reading every fact about the token…" : "reading the latest launches…");
     const md = target ? await TOOLS.find((t) => t.name === "ruby_lens_check").run({ token: target }) : await TOOLS.find((t) => t.name === "ruby_lens_new").run({ count: Math.min(20, Number(count) || 10) }), when = new Date().toISOString();
     const f = writeNote(vault, `Lens/${safeNote(target ? `${(md.match(/^# Ruby Lens · ([^\n·]+)/) || [, target])[1].trim()} ${when.slice(0, 10)}` : `New launches ${when.slice(0, 16).replace("T", " ").replace(":", "")}`)}.md`, fmNote({ type: "lens", token: target || null, saved: when.slice(0, 16).replace("T", " ") + " UTC", chain: "Robinhood Chain mainnet (4663)", tags: ["lens", "robinhood-chain"] }) + "\n" + md + "\n\n## Notes\n- \n");
@@ -95,6 +105,7 @@ async function main() {
   ruby locker <token>                 what the Pons V2 launch locker holds for a graduated token
   ruby lend [wallet]                  lending markets on Robinhood Chain; with a wallet, its positions and room to liquidation
   ruby agent "<task>" [--model id]    an AI agent that answers a task with Ruby's read-only tools (your OPENROUTER_API_KEY)
+  ruby playbook [name] [token]        saved tasks that write a report, compared with the last run (--every 24h repeats it)
   ruby lens [token] [--count 10]      Ruby Lens: the latest launches, or every fact Ruby can read about one token
   ruby gpu <endpoint|payee> [wallet]  Ruby GPU Spend: paid calls, USDG and payers of a GPU network over 7 days; with a wallet, what it spent
   ruby replicate <token> "<claims>"   re-run claims about a token against the chain; writes verdicts and a certificate
