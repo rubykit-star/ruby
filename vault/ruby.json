@@ -1,6 +1,40 @@
 {
   "wallets": [
-    { "address": "0x000000000000000000000000000000000000dEaD", "label": "example" }
+    {
+      "address": "0x000000000000000000000000000000000000dEaD",
+      "label": "example"
+    }
   ],
-  "watch": []
+  "watch": [],
+  "playbooks": {
+    "new-launches": {
+      "steps": [
+        {
+          "tool": "ruby_lens_new",
+          "args": {
+            "count": 10
+          }
+        }
+      ]
+    },
+    "ruby-morning": {
+      "steps": [
+        {
+          "tool": "ruby_block"
+        },
+        {
+          "tool": "ruby_lens_check",
+          "args": {
+            "token": "RUBY"
+          }
+        },
+        {
+          "tool": "ruby_flow",
+          "args": {
+            "count": 10
+          }
+        }
+      ]
+    }
+  }
 }
