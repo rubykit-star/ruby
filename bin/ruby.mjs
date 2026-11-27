@@ -7,6 +7,7 @@
 //   ruby proof <answer> <source>       the data to record on chain that an answer was made from a source note
 //   ruby proof-check <answer>          find proofs of an answer on chain · ruby proofs: a note of every proof
 //   ruby radar [--count 15]            a note of the latest launchpad launches, read from their events
+//   ruby lens [token] [--count 10]     Ruby Lens: the latest launches, or every fact about one token, as a note
 //   ruby mcp                           a memory server for AI agents (MCP over stdio)
 //   ruby footprint <wallet>            what the public can read about a wallet: counterparties, hours, holdings, approvals
 //   ruby lock | ruby unlock            encrypt or decrypt every note in the vault with a password (AES-256-GCM)
@@ -35,6 +36,7 @@ import { lendNote } from "../lib/lend.mjs";
 import { flowNote, RUBY_POOL } from "../lib/flow.mjs";
 import { replicateNote } from "../lib/replicate.mjs";
 import { gpuNote } from "../lib/gpu.mjs";
+import { write as writeNote, frontmatter as fmNote, safeName as safeNote } from "../lib/note.mjs";
 import { agentNote, DEFAULT_MODEL } from "../lib/agent.mjs";
 import { prepareProof, checkProof, proofsNote, PROOF } from "../lib/proof.mjs";
 
@@ -57,6 +59,10 @@ async function main() {
     console.log(`answer sha256 ${r.answerHash}${r.sourceHash ? "\nsource sha256 " + r.sourceHash : ""}\n` + (r.found.length ? r.found.map((f) => `✓ proof #${f.index} by ${f.prover} at block ${f.block} · source block ${f.sourceBlock} · kind ${f.kind}${f.sourceMatches === null ? "" : f.sourceMatches ? " · source matches" : " · source differs"}\n  https://robinhoodchain.blockscout.com/tx/${f.tx}`).join("\n") : "✗ no proof of this exact answer on Robinhood Chain")); if (!r.found.length) process.exitCode = 1; return; }
   if (cmd === "proofs") { const f = await proofsNote(vault, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "agent") { const task = args.slice(1).join(" ").trim(); if (!task) throw new Error('usage: ruby agent "<task>" [--model openrouter-model-id] [--steps 8]  (needs OPENROUTER_API_KEY in your environment)'); const r = await agentNote(vault, task, { model: modelArg || DEFAULT_MODEL, steps: stepsArg ? +stepsArg : 8, log: say }); console.log("\n" + r.answer + "\n\nwrote " + path.relative(process.cwd(), r.file)); return; }
+  if (cmd === "lens") { if (target && !isAddr(target) && !/^\$?ruby$/i.test(target)) throw new Error("usage: ruby lens [token 0x…] [--count 10]"); const { TOOLS } = await import("../lib/tools.mjs"); say(target ? "reading every fact about the token…" : "reading the latest launches…");
+    const md = target ? await TOOLS.find((t) => t.name === "ruby_lens_check").run({ token: target }) : await TOOLS.find((t) => t.name === "ruby_lens_new").run({ count: Math.min(20, Number(count) || 10) }), when = new Date().toISOString();
+    const f = writeNote(vault, `Lens/${safeNote(target ? `${(md.match(/^# Ruby Lens · ([^\n·]+)/) || [, target])[1].trim()} ${when.slice(0, 10)}` : `New launches ${when.slice(0, 16).replace("T", " ").replace(":", "")}`)}.md`, fmNote({ type: "lens", token: target || null, saved: when.slice(0, 16).replace("T", " ") + " UTC", chain: "Robinhood Chain mainnet (4663)", tags: ["lens", "robinhood-chain"] }) + "\n" + md + "\n\n## Notes\n- \n");
+    console.log(md + "\n\nwrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "gpu") { const w = args[2] || null; if (!target || (!isAddr(target) && !/^https?:\/\//i.test(target))) throw new Error("usage: ruby gpu <x402 endpoint URL | payee 0x…> [your wallet 0x…]"); const f = await gpuNote(vault, target, { wallet: w, log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "replicate") { const src = args.slice(2).join(" "); if (!isAddr(target) || !src) throw new Error('usage: ruby replicate <token 0x…> "<claims, one per line>"  (or a path to a text file of claims)'); const claims = fs.existsSync(src) ? fs.readFileSync(src, "utf8") : src.replace(/\\n/g, "\n"); const f = await replicateNote(vault, target, claims, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "flow") { const num = /^\d+$/.test(target || ""), pid = num ? null : target; if (pid && !isPoolId(pid)) throw new Error("usage: ruby flow [Uniswap V4 pool id 0x… (64 hex)] [count]"); const n = parseInt(count || (num ? target : args[2]) || "40", 10); const f = await flowNote(vault, { pool: pid || RUBY_POOL, count: n, log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
@@ -89,6 +95,7 @@ async function main() {
   ruby locker <token>                 what the Pons V2 launch locker holds for a graduated token
   ruby lend [wallet]                  lending markets on Robinhood Chain; with a wallet, its positions and room to liquidation
   ruby agent "<task>" [--model id]    an AI agent that answers a task with Ruby's read-only tools (your OPENROUTER_API_KEY)
+  ruby lens [token] [--count 10]      Ruby Lens: the latest launches, or every fact Ruby can read about one token
   ruby gpu <endpoint|payee> [wallet]  Ruby GPU Spend: paid calls, USDG and payers of a GPU network over 7 days; with a wallet, what it spent
   ruby replicate <token> "<claims>"   re-run claims about a token against the chain; writes verdicts and a certificate
   ruby flow [poolId] [count]          the latest swaps in a Uniswap V4 pool, with the wallet behind each (default: the RUBY pool)
