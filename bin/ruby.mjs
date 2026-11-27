@@ -8,7 +8,7 @@
 //   ruby proof-check <answer>          find proofs of an answer on chain · ruby proofs: a note of every proof
 //   ruby radar [--count 15]            a note of the latest launchpad launches, read from their events
 //   ruby playbook [name] [token]       saved tasks that write a report note, compared with the last run (--every 24h to repeat)
-//   ruby lens [token] [--count 10]     Ruby Lens: the latest launches, or every fact about one token, as a note
+//   ruby lens [token] [--net n]        Ruby Lens: the latest launches, or every fact about one token, as a note (robinhood, elysium, solana)
 //   ruby mcp                           a memory server for AI agents (MCP over stdio)
 //   ruby footprint <wallet>            what the public can read about a wallet: counterparties, hours, holdings, approvals
 //   ruby lock | ruby unlock            encrypt or decrypt every note in the vault with a password (AES-256-GCM)
@@ -45,7 +45,7 @@ import { prepareProof, checkProof, proofsNote, PROOF } from "../lib/proof.mjs";
 const here = path.dirname(fileURLToPath(import.meta.url)), TEMPLATE = path.join(here, "..", "vault");
 const args = process.argv.slice(2), opt = (k) => { const i = args.indexOf("--" + k); if (i < 0) return null; const v = args[i + 1]; args.splice(i, 2); return v; };
 const flag = (k) => { const i = args.indexOf("--" + k); if (i < 0) return false; args.splice(i, 1); return true; };
-const everyArg = opt("every"), aiFlag = flag("ai"), modelArg = opt("model"), stepsArg = opt("steps"), kindArg = opt("kind"), vaultArg = opt("vault"), label = opt("label"), count = opt("count"), days = opt("days"), hours = opt("hours"), minutes = opt("minutes"), minEth = opt("min-eth"), minPct = opt("min-pct"), once = flag("once"), [cmd, target] = args;
+const netArg = opt("net") || opt("network"), everyArg = opt("every"), aiFlag = flag("ai"), modelArg = opt("model"), stepsArg = opt("steps"), kindArg = opt("kind"), vaultArg = opt("vault"), label = opt("label"), count = opt("count"), days = opt("days"), hours = opt("hours"), minutes = opt("minutes"), minEth = opt("min-eth"), minPct = opt("min-pct"), once = flag("once"), [cmd, target] = args;
 const vault = path.resolve(vaultArg || (cmd === "init" && target) || ".");
 const say = (m) => process.stderr.write("· " + m + "\n");
 
@@ -69,9 +69,10 @@ async function main() {
     if (!everyArg) { await runOnce(); return; }
     const ms = every(everyArg); say(`running now, then every ${everyArg}. Leave this window open; Ctrl+C stops it.`);
     for (;;) { try { await runOnce(); } catch (e) { say("this run failed: " + (e.message || e) + " · trying again next time"); } say(`next run at ${new Date(Date.now() + ms).toISOString().slice(0, 16).replace("T", " ")} UTC`); await new Promise((r) => setTimeout(r, ms)); } }
-  if (cmd === "lens") { if (target && !isAddr(target) && !/^\$?ruby$/i.test(target)) throw new Error("usage: ruby lens [token 0x…] [--count 10]"); const { TOOLS } = await import("../lib/tools.mjs"); say(target ? "reading every fact about the token…" : "reading the latest launches…");
-    const md = target ? await TOOLS.find((t) => t.name === "ruby_lens_check").run({ token: target }) : await TOOLS.find((t) => t.name === "ruby_lens_new").run({ count: Math.min(20, Number(count) || 10) }), when = new Date().toISOString();
-    const f = writeNote(vault, `Lens/${safeNote(target ? `${(md.match(/^# Ruby Lens · ([^\n·]+)/) || [, target])[1].trim()} ${when.slice(0, 10)}` : `New launches ${when.slice(0, 16).replace("T", " ").replace(":", "")}`)}.md`, fmNote({ type: "lens", token: target || null, saved: when.slice(0, 16).replace("T", " ") + " UTC", chain: "Robinhood Chain mainnet (4663)", tags: ["lens", "robinhood-chain"] }) + "\n" + md + "\n\n## Notes\n- \n");
+  if (cmd === "lens") { const net = String(netArg || "robinhood").toLowerCase(); if (!["robinhood", "elysium", "solana"].includes(net)) throw new Error("--net takes robinhood, elysium or solana");
+    if (target && net !== "solana" && !isAddr(target) && !/^\$?ruby$/i.test(target)) throw new Error("usage: ruby lens [token 0x… | Solana mint] [--net robinhood|elysium|solana] [--count 10]"); const { TOOLS } = await import("../lib/tools.mjs"); say(target ? "reading every fact about the token…" : "reading the latest launches…");
+    const md = target ? await TOOLS.find((t) => t.name === "ruby_lens_check").run({ token: target, network: net }) : await TOOLS.find((t) => t.name === "ruby_lens_new").run({ count: Math.min(20, Number(count) || 10), network: net }), when = new Date().toISOString();
+    const f = writeNote(vault, `Lens/${safeNote(target ? `${(md.match(/^# Ruby Lens · ([^\n·]+)/) || [, target])[1].trim()} ${when.slice(0, 10)}` : `${net === "robinhood" ? "" : net[0].toUpperCase() + net.slice(1) + " "}New launches ${when.slice(0, 16).replace("T", " ").replace(":", "")}`)}.md`, fmNote({ type: "lens", network: net, token: target || null, saved: when.slice(0, 16).replace("T", " ") + " UTC", chain: "Robinhood Chain mainnet (4663)", tags: ["lens", "robinhood-chain"] }) + "\n" + md + "\n\n## Notes\n- \n");
     console.log(md + "\n\nwrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "gpu") { const w = args[2] || null; if (!target || (!isAddr(target) && !/^https?:\/\//i.test(target))) throw new Error("usage: ruby gpu <x402 endpoint URL | payee 0x…> [your wallet 0x…]"); const f = await gpuNote(vault, target, { wallet: w, log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
   if (cmd === "replicate") { const src = args.slice(2).join(" "); if (!isAddr(target) || !src) throw new Error('usage: ruby replicate <token 0x…> "<claims, one per line>"  (or a path to a text file of claims)'); const claims = fs.existsSync(src) ? fs.readFileSync(src, "utf8") : src.replace(/\\n/g, "\n"); const f = await replicateNote(vault, target, claims, { log: say }); console.log("wrote " + path.relative(process.cwd(), f)); return; }
@@ -106,7 +107,7 @@ async function main() {
   ruby lend [wallet]                  lending markets on Robinhood Chain; with a wallet, its positions and room to liquidation
   ruby agent "<task>" [--model id]    an AI agent that answers a task with Ruby's read-only tools (your OPENROUTER_API_KEY)
   ruby playbook [name] [token]        saved tasks that write a report, compared with the last run (--every 24h repeats it)
-  ruby lens [token] [--count 10]      Ruby Lens: the latest launches, or every fact Ruby can read about one token
+  ruby lens [token] [--net elysium|solana]  Ruby Lens: the latest launches, or every fact about one token (default: Robinhood Chain)
   ruby gpu <endpoint|payee> [wallet]  Ruby GPU Spend: paid calls, USDG and payers of a GPU network over 7 days; with a wallet, what it spent
   ruby replicate <token> "<claims>"   re-run claims about a token against the chain; writes verdicts and a certificate
   ruby flow [poolId] [count]          the latest swaps in a Uniswap V4 pool, with the wallet behind each (default: the RUBY pool)
