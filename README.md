@@ -67,7 +67,7 @@ Cursor (`~/.cursor/mcp.json`): `{ "mcpServers": { "ruby": { "url": "https://ruby
 VS Code (`.vscode/mcp.json`): `{ "servers": { "ruby": { "type": "http", "url": "https://ruby-mcp.vercel.app/mcp" } } }`
 Claude: Settings → Connectors → Add custom connector → paste the URL.
 
-The hosted server is `api/mcp.mjs` in this repository. It allows 60 calls a minute per address; for more, or for the vault tools (notes, memory, seal, proof), run Ruby locally as below.
+The hosted server is `api/mcp.mjs` in this repository. It allows 60 calls a minute per address, and 600 for Ruby Pass holders (below). For the vault tools (notes, memory, seal, proof), run Ruby locally as below.
 
 ### Run it locally
 
@@ -105,6 +105,25 @@ args = ["-y", "github:rubykit-star/ruby", "mcp", "--vault", "/path/to/my-vault"]
 Your agent can then read the chain, write notes into the vault and recall them later. Notes it saves go to `Memory/`. It can only read files inside the vault.
 
 `watch` takes extra token addresses to include in daily notes. Set `RUBY_RPC` to use another Robinhood Chain RPC.
+
+## Ruby Pass (Ruby 2.0)
+
+Hold at least **1,000,000 RUBY** (`0x48447ce272824776c7f21d8741dba38ca1586475`) and sign one free message at [rubykit.cc/pass](https://rubykit.cc/pass). Nothing is locked, sent or staked: the balance is read from Robinhood Chain every time a perk is used, and a signed pass is good for 30 days while the wallet still holds the minimum.
+
+| Perk | Where |
+| --- | --- |
+| Launch Alerts: every new Pons launch as it lands, and an alert if its creator sells in the first hour | rubykit.cc/watch |
+| 40 watch slots instead of 12 | rubykit.cc/watch |
+| 600 hosted MCP calls a minute instead of 60 (checked on the server, on chain) | `x-ruby-pass` header |
+| Sound alerts | rubykit.cc/watch |
+
+Use the pass with the hosted MCP by sending the key from rubykit.cc/pass as a header, for example in Claude Code:
+
+```
+claude mcp add --transport http ruby https://ruby-mcp.vercel.app/mcp --header "x-ruby-pass: <your key>"
+```
+
+The check is `lib/pass.mjs`: it recovers the signer of the message, refuses passes older than 30 days, and reads the RUBY balance on chain. Everything that was free stays free.
 
 ## Where the data comes from
 

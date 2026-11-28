@@ -1,6 +1,6 @@
 {
   "name": "ruby-brain-kit",
-  "version": "0.14.0",
+  "version": "2.0.0",
   "description": "An on-chain second brain for Robinhood Chain: daily wallet notes and token fact notes, as plain Markdown.",
   "type": "module",
   "bin": { "ruby": "bin/ruby.mjs" },
